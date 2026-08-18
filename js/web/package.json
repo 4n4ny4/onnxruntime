@@ -20,8 +20,11 @@
   "scripts": {
     "preprepare": "node -e \"require('node:fs').copyFileSync('./node_modules/long/index.d.ts', './node_modules/long/umd/index.d.ts')\"",
     "prepare": "tsc --build ./script",
+    "build:benchmark:yolo26-webgpu": "node ./script/build-yolo26-webgpu-benchmark --ort-engine=native-webgpu-ep",
     "build:doc": "node ./script/generate-webgl-operator-md && node ./script/generate-webgpu-operator-md",
     "pull:wasm": "node ./script/pull-prebuilt-wasm-artifacts",
+    "serve:benchmark:yolo26-webgpu": "node ./script/build-yolo26-webgpu-benchmark --serve --ort-engine=native-webgpu-ep",
+    "test:benchmark:yolo26-webgpu": "node ./script/build-yolo26-webgpu-benchmark --smoke --ort-engine=native-webgpu-ep",
     "test:e2e": "node ./test/e2e/run",
     "prebuild": "tsc -p . --noEmit && tsc -p lib/wasm/proxy-worker --noEmit",
     "build": "node ./script/build",
@@ -35,6 +38,7 @@
   ],
   "devDependencies": {
     "@chiragrupani/karma-chromium-edge-launcher": "^2.2.2",
+    "@litertjs/core": "2.5.3",
     "@petamoriken/float16": "^3.8.7",
     "@types/chai": "^4.3.4",
     "@types/emscripten": "^1.39.6",

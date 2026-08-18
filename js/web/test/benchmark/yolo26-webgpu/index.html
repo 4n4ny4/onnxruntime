@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Matched YOLO26n raw-head WebGPU latency comparison for LiteRT.js and ONNX Runtime Web."
+    />
+    <title>YOLO26n · LiteRT.js vs ONNX Runtime WebGPU</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Browser WebGPU benchmark</p>
+        <h1>YOLO26n raw-head comparison</h1>
+        <p class="lede">
+          LiteRT.js and ONNX Runtime execute the same deterministic FP32 workload on one exact shared GPUDevice. Every
+          timed sample ends after CPU output readback—not after enqueue.
+        </p>
+      </div>
+      <div class="hero-status">
+        <span id="qualification" class="badge badge-neutral">Not run</span>
+        <span id="engine-identity" class="engine">Loading runtime identity…</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="notice notice-primary" aria-labelledby="qualification-title">
+        <div>
+          <h2 id="qualification-title">Qualification gates are enforced</h2>
+          <p>
+            A presentation-qualified result requires the official hashes, 5 rounds × (20 warmups + 100 samples),
+            persistent GPU input, one exact shared device, full delegation, and parity below the fixed tolerances.
+            Individual-arm and reduced-count runs are always labeled development-only.
+          </p>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="assets-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">1 · Immutable inputs</p>
+            <h2 id="assets-title">Select local artifacts or same-origin/CORS URLs</h2>
+          </div>
+          <p>Large model assets are never committed by this page.</p>
+        </div>
+
+        <div class="asset-grid">
+          <fieldset>
+            <legend>Official checkpoint provenance</legend>
+            <label>
+              Expected SHA256
+              <input id="checkpoint-hash" type="text" readonly />
+            </label>
+            <p class="hint">Recorded as provenance; inference uses the exported raw-head models below.</p>
+          </fieldset>
+
+          <fieldset>
+            <legend>ONNX raw head · [1,3,640,640] → [1,84,8400]</legend>
+            <label>
+              Local .onnx
+              <input id="onnx-file" data-benchmark-control type="file" accept=".onnx,application/octet-stream" />
+            </label>
+            <label>
+              Or URL
+              <input id="onnx-url" data-benchmark-control type="url" placeholder="./local-assets/yolo26n.onnx" />
+            </label>
+            <label>
+              Expected SHA256
+              <input id="onnx-hash" data-benchmark-control class="hash" type="text" spellcheck="false" />
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>TFLite raw head · [1,640,640,3] → [1,84,8400]</legend>
+            <label>
+              Local .tflite
+              <input id="tflite-file" data-benchmark-control type="file" accept=".tflite,application/octet-stream" />
+            </label>
+            <label>
+              Or URL
+              <input id="tflite-url" data-benchmark-control type="url" placeholder="./local-assets/yolo26n.tflite" />
+            </label>
+            <label>
+              Expected SHA256
+              <input id="tflite-hash" data-benchmark-control class="hash" type="text" spellcheck="false" />
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>Deterministic float32 NPY · [1,3,640,640]</legend>
+            <label>
+              Local .npy
+              <input id="input-file" data-benchmark-control type="file" accept=".npy,application/octet-stream" />
+            </label>
+            <label>
+              Or URL
+              <input id="input-url" data-benchmark-control type="url" placeholder="./local-assets/input_nchw.npy" />
+            </label>
+            <label>
+              Expected SHA256
+              <input id="input-hash" data-benchmark-control class="hash" type="text" spellcheck="false" />
+            </label>
+          </fieldset>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="config-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">2 · Timing contract</p>
+            <h2 id="config-title">Configure steady-state sampling</h2>
+          </div>
+          <p>Compilation and first inference are reported separately.</p>
+        </div>
+
+        <div class="config-grid">
+          <label>
+            Warmups per round
+            <input id="warmups" data-benchmark-control type="number" min="0" step="1" value="20" />
+          </label>
+          <label>
+            Timed samples per round
+            <input id="iterations" data-benchmark-control type="number" min="1" step="1" value="100" />
+          </label>
+          <label>
+            Fresh model compilations
+            <input id="rounds" data-benchmark-control type="number" min="1" step="1" value="5" />
+          </label>
+          <label>
+            Runtime order
+            <select id="order" data-benchmark-control>
+              <option value="alternating">Alternate each round</option>
+              <option value="randomized" selected>Random start, then alternate · qualified</option>
+              <option value="ort-first">ORT first</option>
+              <option value="litert-first">LiteRT.js first</option>
+            </select>
+          </label>
+          <label>
+            Stabilization before each arm (ms)
+            <input id="stabilization" data-benchmark-control type="number" min="0" step="100" value="1000" />
+          </label>
+          <label>
+            Input boundary
+            <select id="input-boundary" data-benchmark-control>
+              <option value="gpu-resident" selected>Persistent GPU input · primary</option>
+              <option value="per-run-upload">Host upload inside each run · secondary</option>
+            </select>
+          </label>
+          <div class="boundary">
+            <span>Output boundary</span>
+            <strong>GPU output → explicit CPU readback per sample</strong>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="run-comparison" class="button button-primary" type="button">Run comparison</button>
+          <button id="run-ort" class="button" type="button">Run ORT</button>
+          <button id="run-litert" class="button" type="button">Run LiteRT.js</button>
+          <button id="cancel" class="button button-danger" type="button" disabled>Cancel</button>
+        </div>
+
+        <div class="progress-region" aria-live="polite">
+          <div class="progress-label">
+            <span id="status-text">Ready</span>
+            <span id="progress-text">0/0</span>
+          </div>
+          <progress id="progress" value="0" max="1"></progress>
+        </div>
+
+        <div id="error-panel" class="notice notice-error" role="alert" hidden>
+          <div>
+            <h3>Benchmark stopped</h3>
+            <pre id="error-text"></pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel results" aria-labelledby="results-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">3 · Correctness and latency</p>
+            <h2 id="results-title">Results</h2>
+          </div>
+          <p>Throughput is 1000 / mean latency, not the reciprocal of p50.</p>
+        </div>
+
+        <h3>Correctness gate before timing</h3>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Gate</th>
+                <th>Max abs</th>
+                <th>P99 abs</th>
+                <th>Mean abs</th>
+                <th>Output shapes and normalization</th>
+              </tr>
+            </thead>
+            <tbody id="correctness-body"></tbody>
+          </table>
+        </div>
+
+        <h3>Aggregate steady-state latency</h3>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Runtime</th>
+                <th>N</th>
+                <th>P50 ms</th>
+                <th>P90 ms</th>
+                <th>Mean ms</th>
+                <th>Stddev</th>
+                <th>IQR</th>
+                <th>Min</th>
+                <th>Max</th>
+                <th>Mean inf/s</th>
+              </tr>
+            </thead>
+            <tbody id="aggregate-body"></tbody>
+          </table>
+        </div>
+
+        <details>
+          <summary>Per-round results</summary>
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>Round</th>
+                  <th>Runtime</th>
+                  <th>Order</th>
+                  <th>Compile ms</th>
+                  <th>First ms</th>
+                  <th>P50 ms</th>
+                  <th>P90 ms</th>
+                  <th>Mean ms</th>
+                </tr>
+              </thead>
+              <tbody id="rounds-body"></tbody>
+            </table>
+          </div>
+        </details>
+      </section>
+
+      <section class="panel diagnostics" aria-labelledby="diagnostics-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">4 · Reproducibility</p>
+            <h2 id="diagnostics-title">Environment and raw result</h2>
+          </div>
+          <div class="actions compact">
+            <button id="copy-json" class="button" type="button" disabled>Copy JSON</button>
+            <button id="download-json" class="button" type="button" disabled>Download JSON</button>
+          </div>
+        </div>
+        <details open>
+          <summary>Adapter, browser, runtime, hash, and methodology diagnostics</summary>
+          <pre id="environment-output">Adapter and runtime diagnostics will appear after a run.</pre>
+        </details>
+        <details>
+          <summary>Raw JSON, including every timed sample</summary>
+          <pre id="json-output">No result yet.</pre>
+        </details>
+      </section>
+
+      <section class="panel methodology" aria-labelledby="methodology-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Methodology and limitations</p>
+            <h2 id="methodology-title">What this page does—and does not—claim</h2>
+          </div>
+        </div>
+        <div class="method-grid">
+          <article>
+            <h3>Matched work</h3>
+            <p>
+              Both arms use the official checkpoint provenance, one deterministic tensor, the raw detection head, FP32
+              model I/O, no NMS, and one exact GPUDevice. NCHW→NHWC input conversion and the known TFLite export's box
+              channel ×640 semantic normalization occur after/before inference and outside timing.
+            </p>
+          </article>
+          <article>
+            <h3>Real synchronization</h3>
+            <p>
+              Each sample includes runtime execution and explicit CPU output readback. Model fetch, hashing,
+              compilation, first inference, input layout conversion, and result rendering are outside steady-state
+              samples.
+            </p>
+          </article>
+          <article>
+            <h3>Delegation gates</h3>
+            <p>
+              ORT sets <code>session.disable_cpu_ep_fallback=1</code>. LiteRT.js must retain accelerator=webgpu and
+              report <code>isFullyAccelerated=true</code>. A hybrid result is rejected.
+            </p>
+          </article>
+          <article>
+            <h3>FP32 evidence</h3>
+            <p>
+              LiteRT.js receives <code>gpuOptions.precision=fp32</code>. LiteRT.js has no post-compilation precision
+              query, so the request echo and output parity are reported rather than overstating introspection.
+            </p>
+          </article>
+          <article>
+            <h3>ORT engine</h3>
+            <p>
+              This page selects the native C++ WebGPU EP compiled to Asyncify WASM. Optional
+              <code>?graphCapture=1</code> re-encodes saved dispatch records with stable external I/O; it never
+              resubmits a WebGPU command buffer.
+            </p>
+          </article>
+          <article>
+            <h3>Browser requirements</h3>
+            <p>
+              Use current Chrome or Edge on HTTPS or localhost. Model URLs require CORS. The benchmark uses unthreaded
+              LiteRT.js and ORT with one WASM thread, so cross-origin isolation is not required.
+            </p>
+          </article>
+        </div>
+        <div class="notice notice-warning">
+          <div>
+            <h3>Native Intel result is blocked—not a verdict</h3>
+            <p>
+              LiteRT 2.1.6 on Windows selected TITAN V despite its public preferred-device selector; direct Intel device
+              injection crashed. ORT was proven on Intel UHD 770, but no native Intel win, tie, or loss is reported.
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>Development benchmark. Review raw JSON and all qualification gates before presenting a result.</footer>
+
+    <script src="../../../dist/ort.all.min.js"></script>
+    <script type="module" src="./dist/app.js"></script>
+  </body>
+</html>

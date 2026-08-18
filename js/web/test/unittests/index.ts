@@ -15,6 +15,7 @@ require('./backends/wasm/test-model-metadata');
 if (!BUILD_DEFS.DISABLE_WEBGPU) {
   require('./backends/wasm/test-webgpu-device');
 }
+require('./yolo26-webgpu-benchmark');
 
 require('./pool-output-shape');
 
