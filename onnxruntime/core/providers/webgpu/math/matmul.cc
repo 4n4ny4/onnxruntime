@@ -252,11 +252,18 @@ Status ComputeMatMul(ComputeContext* context,
   InlinedVector<int64_t> elements_per_thread = dim_a_outer <= 8
                                                    ? InlinedVector<int64_t>({4, 1, 1})
                                                    : InlinedVector<int64_t>({4, 4, 1});
+  uint32_t workgroup_size_y = MatMul::MATMUL_PACKED_WORKGROUP_SIZE_Y;
+  constexpr uint32_t kAlignedVec4WorkgroupSizeY = 16;
+  if (IsReportedNvidiaPascalAdapter(context->AdapterInfo()) &&
+      is_channels_last && is_vec4 && dim_a_outer > 8) {
+    workgroup_size_y = kAlignedVec4WorkgroupSizeY;
+    elements_per_thread[1] = 32 / kAlignedVec4WorkgroupSizeY;
+  }
 
   const uint32_t dispatch_x = narrow<uint32_t>((dim_b_outer + MatMul::MATMUL_PACKED_WORKGROUP_SIZE_X * elements_per_thread[0] - 1) /
                                                (MatMul::MATMUL_PACKED_WORKGROUP_SIZE_X * elements_per_thread[0]));
-  const uint32_t dispatch_y = narrow<uint32_t>((dim_a_outer + MatMul::MATMUL_PACKED_WORKGROUP_SIZE_Y * elements_per_thread[1] - 1) /
-                                               (MatMul::MATMUL_PACKED_WORKGROUP_SIZE_Y * elements_per_thread[1]));
+  const uint32_t dispatch_y = narrow<uint32_t>((dim_a_outer + workgroup_size_y * elements_per_thread[1] - 1) /
+                                               (workgroup_size_y * elements_per_thread[1]));
   uint32_t dispatch_z = narrow<uint32_t>((static_cast<uint32_t>(batch_size) + MatMul::MATMUL_PACKED_WORKGROUP_SIZE_Z * elements_per_thread[2] - 1) /
                                          (MatMul::MATMUL_PACKED_WORKGROUP_SIZE_Z * elements_per_thread[2]));
 
@@ -313,7 +320,7 @@ Status ComputeMatMul(ComputeContext* context,
       .AddUniformVariables({{dim_a_outer}, {dim_b_outer}, {dim_inner}, {dispatch_x}, {dispatch_y}, {dispatch_z}, {splits_per_batch}})
       .AddIndices(outer_dims)
       .SetDispatchGroupSize(dispatch_x, dispatch_y, dispatch_z)
-      .SetWorkgroupSize(MatMul::MATMUL_PACKED_WORKGROUP_SIZE_X, MatMul::MATMUL_PACKED_WORKGROUP_SIZE_Y, MatMul::MATMUL_PACKED_WORKGROUP_SIZE_Z)
+      .SetWorkgroupSize(MatMul::MATMUL_PACKED_WORKGROUP_SIZE_X, workgroup_size_y, MatMul::MATMUL_PACKED_WORKGROUP_SIZE_Z)
       .AddOutput(std::move(output));
 
   if (use_bias_in_matmul) {
