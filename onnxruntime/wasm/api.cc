@@ -11,8 +11,9 @@
 #ifdef USE_WEBGPU
 namespace onnxruntime {
 namespace webgpu {
+WGPUInstance CreateWebGpuInstance();
 WGPUDevice GetDevice(int);
-}
+}  // namespace webgpu
 }  // namespace onnxruntime
 #endif
 
@@ -629,6 +630,10 @@ char* OrtEndProfiling(ort_session_handle_t session) {
 // WebGPU API Section
 
 #ifdef USE_WEBGPU
+
+WGPUInstance OrtCreateWebGpuInstance() {
+  return onnxruntime::webgpu::CreateWebGpuInstance();
+}
 
 WGPUDevice OrtGetWebGpuDevice(int device_id) {
   return onnxruntime::webgpu::GetDevice(device_id);

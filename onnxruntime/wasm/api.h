@@ -302,6 +302,16 @@ char* EMSCRIPTEN_KEEPALIVE OrtEndProfiling(ort_session_handle_t session);
 #ifdef USE_WEBGPU
 
 /**
+ * create a WebGPU instance with the features required by the WebGPU EP.
+ *
+ * WebGPU-enabled WASM builds always use Asyncify or JSPI, so TimedWaitAny is
+ * enabled for the waits used by the EP.
+ *
+ * @returns an owned WGPUInstance handle, or nullptr on failure.
+ */
+WGPUInstance EMSCRIPTEN_KEEPALIVE OrtCreateWebGpuInstance();
+
+/**
  * get the GPU Device by device ID.
  *
  * This function is only available after the GPU Device is initialized in WebGpuContextFactory.

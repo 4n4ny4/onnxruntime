@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <cmath>
+#include <iterator>
 #include <string>
 
 #if defined(__GNUC__)
@@ -1128,6 +1129,14 @@ std::once_flag WebGpuContextFactory::init_default_flag_;
 std::unordered_map<int32_t, WebGpuContextFactory::WebGpuContextInfo>* WebGpuContextFactory::contexts_ = nullptr;
 WGPUInstance WebGpuContextFactory::default_instance_ = nullptr;
 
+WGPUInstance CreateWebGpuInstance() {
+  wgpu::InstanceFeatureName required_instance_features[] = {wgpu::InstanceFeatureName::TimedWaitAny};
+  wgpu::InstanceDescriptor instance_desc{};
+  instance_desc.requiredFeatures = required_instance_features;
+  instance_desc.requiredFeatureCount = std::size(required_instance_features);
+  return wgpu::CreateInstance(&instance_desc).MoveToCHandle();
+}
+
 WebGpuContext& WebGpuContextFactory::CreateContext(const WebGpuContextConfig& config) {
   const int context_id = config.context_id;
   WGPUInstance instance = config.instance;
@@ -1160,12 +1169,7 @@ WebGpuContext& WebGpuContextFactory::CreateContext(const WebGpuContextConfig& co
   std::lock_guard<std::mutex> lock(mutex_);
 
   if (default_instance_ == nullptr) {
-    // Create wgpu::Instance
-    wgpu::InstanceFeatureName required_instance_features[] = {wgpu::InstanceFeatureName::TimedWaitAny};
-    wgpu::InstanceDescriptor instance_desc{};
-    instance_desc.requiredFeatures = required_instance_features;
-    instance_desc.requiredFeatureCount = sizeof(required_instance_features) / sizeof(required_instance_features[0]);
-    default_instance_ = wgpu::CreateInstance(&instance_desc).MoveToCHandle();
+    default_instance_ = CreateWebGpuInstance();
 
     ORT_ENFORCE(default_instance_ != nullptr, "Failed to create wgpu::Instance.");
   }
