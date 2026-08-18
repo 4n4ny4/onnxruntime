@@ -3275,6 +3275,43 @@ TEST_F(GraphTransformationTests, FuseConvActivationPreservingAttributes) {
   check_ints_attr("pads", AsSpan<int64_t>({1, 1, 1, 1}));
   check_ints_attr("kernel_shape", AsSpan<int64_t>({3, 3}));
 }
+
+TEST_F(GraphTransformationTests, FuseNativeWebGpuConvQuickGeluDefaultAlpha) {
+  auto build_test_case = [](ModelTestBuilder& builder) {
+    auto* input = builder.MakeInput<float>({{1, 1, 2, 2}});
+    auto* weight = builder.MakeInitializer<float>({1, 1, 1, 1}, {1.0f});
+    auto* conv_output = builder.MakeIntermediate();
+    auto* output = builder.MakeOutput();
+
+    auto& conv = builder.AddNode("Conv", {input, weight}, {conv_output});
+    conv.SetExecutionProviderType(kWebGpuExecutionProvider);
+    auto& quick_gelu = builder.AddNode("QuickGelu", {conv_output}, {output}, kMSDomain);
+    quick_gelu.SetExecutionProviderType(kWebGpuExecutionProvider);
+  };
+
+  auto pre_graph_checker = [](Graph& graph) {
+    const auto op_to_count = CountOpsInGraph(graph);
+    TEST_RETURN_IF_NOT(op_to_count.at("Conv") == 1);
+    TEST_RETURN_IF_NOT(op_to_count.at("com.microsoft.QuickGelu") == 1);
+    return Status::OK();
+  };
+
+  auto post_graph_checker = [](Graph& graph) {
+    const auto op_to_count = CountOpsInGraph(graph);
+    TEST_RETURN_IF_NOT(op_to_count.at("com.microsoft.FusedConv") == 1);
+    TEST_RETURN_IF_NOT(op_to_count.find("com.microsoft.QuickGelu") == op_to_count.end());
+    const auto& fused_conv = *graph.Nodes().begin();
+    TEST_RETURN_IF_NOT(fused_conv.GetExecutionProviderType() == kWebGpuExecutionProvider);
+    TEST_RETURN_IF_NOT(fused_conv.GetAttributes().at("activation").s() == "QuickGelu");
+    const auto& activation_params = fused_conv.GetAttributes().at("activation_params").floats();
+    TEST_RETURN_IF_NOT(activation_params.size() == 1 && activation_params.Get(0) == 1.702f);
+    return Status::OK();
+  };
+
+  auto transformer = std::make_unique<ConvActivationFusion>();
+  ASSERT_STATUS_OK(TestGraphTransformer(build_test_case, 13, *logger_, std::move(transformer),
+                                        TransformerLevel::Level2, 1, pre_graph_checker, post_graph_checker));
+}
 #endif  // !defined(DISABLE_CONTRIB_OPS)
 
 TEST_F(GraphTransformationTests, FuseConvMulNoBias) {

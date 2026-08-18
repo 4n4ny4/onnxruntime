@@ -107,7 +107,9 @@ class ConvActivationSelector : public NodeSelector {
       return std::nullopt;
     } else if (node_ep.empty() || node_ep == kCpuExecutionProvider || node_ep == kJsExecutionProvider || node_ep == kWebGpuExecutionProvider) {
       if (!is_supported_non_cuda_ep_activation(*next_node) &&
-          !graph_utils::IsSupportedOptypeVersionAndDomain(*next_node, "HardSigmoid", {6, 22})) {
+          !graph_utils::IsSupportedOptypeVersionAndDomain(*next_node, "HardSigmoid", {6, 22}) &&
+          !(node_ep == kWebGpuExecutionProvider &&
+            graph_utils::IsSupportedOptypeVersionAndDomain(*next_node, "QuickGelu", {1}, kMSDomain))) {
         return std::nullopt;
       }
     } else {
@@ -184,6 +186,9 @@ class FuseConvActivationAction : public ReplaceWithNew {
       float beta = (beta_attr == nullptr ? 0.5f : beta_attr->f());
       activation_params.push_back(alpha);
       activation_params.push_back(beta);
+    } else if (activation_op_type == "QuickGelu") {
+      const auto* alpha_attr = graph_utils::GetNodeAttribute(*activation, "alpha");
+      activation_params.push_back(alpha_attr == nullptr ? 1.702f : alpha_attr->f());
     }
 
     if (!activation_params.empty()) {
