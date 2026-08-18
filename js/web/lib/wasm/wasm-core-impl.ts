@@ -398,8 +398,11 @@ export const createSession = async (
       }
     }
 
-    sessionHandle = await wasm._OrtCreateSession(modelDataOffset, modelDataLength, sessionOptionsHandle);
-    wasm.webgpuOnCreateSession?.(sessionHandle);
+    try {
+      sessionHandle = await wasm._OrtCreateSession(modelDataOffset, modelDataLength, sessionOptionsHandle);
+    } finally {
+      wasm.webgpuOnCreateSession?.(sessionHandle);
+    }
     if (sessionHandle === 0) {
       checkLastError("Can't create a session.");
     }

@@ -12,6 +12,9 @@ if (typeof window !== 'undefined') {
 }
 
 require('./backends/wasm/test-model-metadata');
+if (!BUILD_DEFS.DISABLE_WEBGPU) {
+  require('./backends/wasm/test-webgpu-device');
+}
 
 require('./pool-output-shape');
 

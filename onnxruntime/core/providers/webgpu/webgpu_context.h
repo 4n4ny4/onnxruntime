@@ -31,6 +31,10 @@ class ComputeContextBase;
 class ComputeContext;
 class ProgramBase;
 
+// Creates an instance with the features required by WebGpuContext::Wait().
+// The caller owns the returned reference.
+WGPUInstance CreateWebGpuInstance();
+
 // PendingKernelInfo stores profiling information for a kernel execution
 struct PendingKernelInfo {
   PendingKernelInfo(std::string_view kernel_name,

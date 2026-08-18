@@ -220,7 +220,7 @@ else()
     string(APPEND EXPORTED_FUNCTIONS ",_JsepOutput,_JsepGetNodeName")
   endif()
   if (onnxruntime_USE_WEBGPU)
-    string(APPEND EXPORTED_FUNCTIONS ",_wgpuBufferRelease,_wgpuCreateInstance")
+    string(APPEND EXPORTED_FUNCTIONS ",_wgpuBufferRelease")
   endif()
   set(MAXIMUM_MEMORY "4294967296")
   target_link_options(onnxruntime_webassembly PRIVATE
