@@ -19,7 +19,8 @@ enum class ActivationKind {
   Clip,
   HardSigmoid,
   LeakyRelu,
-  Tanh
+  Tanh,
+  QuickGelu
 };
 
 using Activation = struct Activation {
@@ -34,6 +35,9 @@ using Activation = struct Activation {
     struct {
       float alpha_;
     } LeakyRelu;
+    struct {
+      float alpha_;
+    } QuickGelu;
     struct {
       float minimum_;
       float maximum_;
