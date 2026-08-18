@@ -32,6 +32,11 @@ inline int GetMaxComponents(int64_t size) {
   return 1;
 }
 
+inline bool IsReportedNvidiaPascalAdapter(const wgpu::AdapterInfo& adapter_info) {
+  return adapter_info.vendor == std::string_view{"nvidia"} &&
+         adapter_info.architecture == std::string_view{"pascal"};
+}
+
 /**
  * Returns a string representing a WGSL expression that sums the components of a value T.
  *
